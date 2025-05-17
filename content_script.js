@@ -62,21 +62,41 @@
     });
   }
 
-  // 字幕ノードの処理
-  // 直前の字幕内容をnodeIdごとに記憶
-  const lastCaptionTextMap = new Map();
+  // 文単位で分割（日本語・英語対応）
+  function splitSentences(text) {
+    return text.match(/[^。．.！？!?]+[。．.！？!?]?/g) || [];
+  }
+
+  // 原文センテンス→翻訳キャッシュ
+  const sentenceCache = new Map(); // sentence(string) -> translated(string)
+
   function handleCaptionNode(node) {
     if (!translateEnabled) return;
     const text = node.textContent.trim();
     if (!text) return;
     const nodeId = getNodeId(node);
     node.setAttribute('data-mt-nodeid', nodeId);
-    console.log('handleCaptionNode nodeId:', nodeId, node);
-    if (lastCaptionTextMap.get(nodeId) === text) return;
-    lastCaptionTextMap.set(nodeId, text);
-    // Meet画面への挿入・既存字幕replaceは行わず、翻訳リクエストのみ
-    // @ts-ignore
-    chrome.runtime.sendMessage({ type: 'TRANSLATE', text, nodeId });
+
+    const sentences = splitSentences(text);
+    let untranslated = [];
+    let translatedParts = [];
+
+    for (const s of sentences) {
+      if (sentenceCache.has(s)) {
+        translatedParts.push(sentenceCache.get(s));
+      } else {
+        untranslated.push(s);
+        translatedParts.push(''); // 後で埋める
+      }
+    }
+
+    // 未翻訳センテンスがあればAPIリクエスト
+    if (untranslated.length > 0) {
+      chrome.runtime.sendMessage({ type: 'TRANSLATE', text: untranslated.join(' '), nodeId, untranslated });
+    }
+
+    // 既存翻訳だけでも一旦表示
+    insertTranslationOverlay(node, translatedParts.filter(Boolean).join(' '));
   }
 
   // 翻訳オーバーレイを挿入
@@ -141,19 +161,32 @@
 
   // backgroundから翻訳結果を受信したらchrome.storage.localに保存し、Meet画面に翻訳を重ねて表示
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
-    // @ts-ignore
     chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-      console.log('onMessage:', msg);
-      if (msg.type === 'TRANSLATED' && msg.translated) {
-        // Meet画面上に翻訳を重ねて表示（絶対配置オーバーレイ方式）
+      if (msg.type === 'TRANSLATED' && msg.translated && msg.untranslated) {
+        // msg.untranslated: 翻訳した原文センテンス配列
+        // msg.translated: まとめて翻訳されたテキスト（センテンス数と同じだけ分割する）
+        const translatedArr = splitSentences(msg.translated);
+        msg.untranslated.forEach((orig, i) => {
+          sentenceCache.set(orig, translatedArr[i] || '');
+        });
+        // 再描画
+        const node = findNodeById(msg.nodeId);
+        if (node) {
+          const allSentences = splitSentences(node.textContent.trim());
+          const merged = allSentences.map(s => sentenceCache.get(s) || '').join(' ');
+          insertTranslationOverlay(node, merged);
+        }
+      } else if (msg.type === 'TRANSLATED' && msg.translated) {
+        // 互換: 旧形式
         if (msg.nodeId) {
           const node = findNodeById(msg.nodeId);
           if (node) {
             insertTranslationOverlay(node, msg.translated);
           }
         }
-        // 最新翻訳をchrome.storage.localにも保存（popup用）
-        // @ts-ignore
+      }
+      // 最新翻訳をchrome.storage.localにも保存（popup用）
+      if (msg.translated) {
         chrome.storage.local.set({ latestTranslation: msg.translated });
       }
     });
@@ -172,7 +205,7 @@
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
       handleCaptionNode,
-      _resetLastCaptionTextMap: () => lastCaptionTextMap.clear(),
+      _resetLastTranslatedSentencesMap: () => lastTranslatedSentencesMap.clear(),
     };
   }
 })(); 

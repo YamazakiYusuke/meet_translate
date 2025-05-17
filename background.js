@@ -12,6 +12,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse();
         return;
       }
+      // 入力長に応じてmax_tokensを調整
+      const inputLength = msg.text.length;
+      const maxTokens = Math.max(60, Math.ceil(inputLength * 1.5), 200); // 200以上に制限
       // OpenAI API呼び出し雛形
       try {
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -26,7 +29,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               { role: 'system', content: `You are a translation engine. Translate the following text to ${targetLang || 'ja'}. Output ONLY the translated sentence.` },
               { role: 'user', content: msg.text }
             ],
-            max_tokens: 60
+            max_tokens: maxTokens
           })
         });
         const data = await response.json();
