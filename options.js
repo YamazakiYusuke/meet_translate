@@ -42,4 +42,19 @@ if (form) {
       }
     });
   });
+}
+
+let lastCaptionText = '';
+
+function handleCaptionNode(node) {
+  const text = node.textContent.trim();
+  if (!text) return;
+  if (text === lastCaptionText) return;
+  lastCaptionText = text;
+}
+
+if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    // ...既存処理...
+  });
 } 

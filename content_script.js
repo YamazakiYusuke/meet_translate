@@ -19,15 +19,21 @@
   }
 
   // 字幕ノードの処理
+  // 直前の字幕内容をnodeIdごとに記憶
+  const lastCaptionTextMap = new Map();
   function handleCaptionNode(node) {
     // 既に翻訳済みならスキップ
     if (node.getAttribute(TRANSLATED_ATTR)) return;
     const text = node.textContent.trim();
     if (!text) return;
+    const nodeId = getNodeId(node);
+    // 直前と同じ内容ならスキップ
+    if (lastCaptionTextMap.get(nodeId) === text) return;
+    lastCaptionTextMap.set(nodeId, text);
     // 既存翻訳オーバーレイ除去
     removeTranslation(node);
     // 翻訳リクエスト
-    chrome.runtime.sendMessage({ type: 'TRANSLATE', text, nodeId: getNodeId(node) });
+    chrome.runtime.sendMessage({ type: 'TRANSLATE', text, nodeId });
     node.setAttribute(TRANSLATED_ATTR, 'pending');
   }
 
@@ -62,12 +68,14 @@
   }
 
   // 翻訳結果を受信し、該当ノードに挿入
-  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-    if (msg.type === 'TRANSLATED' && msg.nodeId) {
-      const node = findNodeById(msg.nodeId);
-      if (node) insertTranslation(node, msg.translated);
-    }
-  });
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+      if (msg.type === 'TRANSLATED' && msg.nodeId) {
+        const node = findNodeById(msg.nodeId);
+        if (node) insertTranslation(node, msg.translated);
+      }
+    });
+  }
 
   // XPath的IDからノードを探索
   function findNodeById(nodeId) {
@@ -94,4 +102,12 @@
 
   // 初期化
   observeCaptions();
+
+  // テスト用にエクスポート
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+      handleCaptionNode,
+      _resetLastCaptionTextMap: () => lastCaptionTextMap.clear(),
+    };
+  }
 })(); 

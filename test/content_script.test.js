@@ -2,6 +2,8 @@
  * @jest-environment jsdom
  */
 
+const { handleCaptionNode, _resetLastCaptionTextMap } = require('../content_script.js');
+
 describe('content_script DOM操作', () => {
   let document, captionNode, overlayClass;
 
@@ -13,10 +15,13 @@ describe('content_script DOM操作', () => {
     captionNode.className = 'bh44bd';
     captionNode.textContent = 'Hello world';
     document.body.appendChild(captionNode);
+    global.chrome = { runtime: { sendMessage: jest.fn() } };
+    _resetLastCaptionTextMap();
   });
 
   afterEach(() => {
     document.body.innerHTML = '';
+    delete global.chrome;
   });
 
   test('字幕ノードに翻訳オーバーレイを挿入できる', () => {
@@ -45,5 +50,21 @@ describe('content_script DOM操作', () => {
     }
     removeTranslation(captionNode);
     expect(captionNode.querySelector('.mt-translation')).toBeNull();
+  });
+
+  test('同じ字幕内容なら2回目以降はAPIリクエストしない', () => {
+    // 1回目
+    captionNode.removeAttribute('data-mt-translated');
+    handleCaptionNode(captionNode);
+    expect(global.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
+    // 2回目（同じ内容）
+    captionNode.removeAttribute('data-mt-translated');
+    handleCaptionNode(captionNode);
+    expect(global.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
+    // 内容を変えると再度呼ばれる
+    captionNode.textContent = 'Different text';
+    captionNode.removeAttribute('data-mt-translated');
+    handleCaptionNode(captionNode);
+    expect(global.chrome.runtime.sendMessage).toHaveBeenCalledTimes(2);
   });
 }); 
