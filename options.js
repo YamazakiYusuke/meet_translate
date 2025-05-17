@@ -4,6 +4,7 @@ const apiKeyInput = document.getElementById('apiKey');
 const targetLangSelect = document.getElementById('targetLang');
 const modelSelect = document.getElementById('model');
 const statusDiv = document.getElementById('status');
+const captionColorSelect = document.getElementById('captionColor');
 
 // 言語プルダウン生成
 if (typeof languages !== 'undefined' && targetLangSelect) {
@@ -30,10 +31,13 @@ if (typeof models !== 'undefined' && modelSelect) {
 // 復元
 window.addEventListener('DOMContentLoaded', () => {
   if (!chrome || !chrome.storage || !chrome.storage.local) return;
-  chrome.storage.local.get(['apiKey', 'targetLang', 'model'], (items) => {
+  chrome.storage.local.get(['apiKey', 'targetLang', 'model', 'captionColor'], (items) => {
     if (apiKeyInput && items.apiKey) apiKeyInput.value = items.apiKey;
     if (targetLangSelect && items.targetLang) targetLangSelect.value = items.targetLang;
     if (modelSelect && items.model) modelSelect.value = items.model;
+    if (captionColorSelect && items.captionColor) {
+      captionColorSelect.value = items.captionColor;
+    }
   });
 });
 
@@ -41,11 +45,13 @@ window.addEventListener('DOMContentLoaded', () => {
 if (form) {
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    if (!apiKeyInput || !targetLangSelect || !modelSelect) return;
+    if (!apiKeyInput || !targetLangSelect || !modelSelect || !captionColorSelect) return;
+    const captionColor = captionColorSelect.value;
     chrome.storage.local.set({
       apiKey: apiKeyInput.value,
       targetLang: targetLangSelect.value,
-      model: modelSelect.value
+      model: modelSelect.value,
+      captionColor
     }, () => {
       if (statusDiv) {
         statusDiv.textContent = '保存しました';

@@ -21,6 +21,20 @@
     });
   }
 
+  let captionColor = 'black';
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    chrome.storage.local.get(['captionColor'], (items) => {
+      if (items.captionColor === 'white' || items.captionColor === 'black') {
+        captionColor = items.captionColor;
+      }
+    });
+    chrome.storage.onChanged && chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && changes.captionColor) {
+        captionColor = changes.captionColor.newValue;
+      }
+    });
+  }
+
   // 字幕要素を監視し、未翻訳なら送信
   function observeCaptions() {
     const observer = new MutationObserver(mutations => {
@@ -95,19 +109,47 @@
     return path;
   }
 
+  // 絶対配置の翻訳オーバーレイをbody直下に表示
+  function insertTranslationOverlay(node, translated) {
+    removeTranslationOverlay();
+    const rect = node.getBoundingClientRect();
+    const overlay = document.createElement('div');
+    overlay.className = 'mt-translation-overlay';
+    overlay.textContent = translated;
+    overlay.style.position = 'fixed';
+    overlay.style.left = String(rect.left) + 'px';
+    overlay.style.top = String(rect.top - 40) + 'px';
+    overlay.style.zIndex = '9999';
+    overlay.style.fontSize = '24px';
+    overlay.style.pointerEvents = 'none';
+    overlay.style.whiteSpace = 'pre-wrap';
+    overlay.style.maxWidth = '90vw';
+    overlay.style.padding = '6px 18px';
+    overlay.style.borderRadius = '10px';
+    if (captionColor === 'white') {
+      overlay.style.color = '#fff';
+      overlay.style.background = '#111';
+    } else {
+      overlay.style.color = '#111';
+      overlay.style.background = '#fff';
+    }
+    document.body.appendChild(overlay);
+  }
+  function removeTranslationOverlay() {
+    document.querySelectorAll('.mt-translation-overlay').forEach(e => e.remove());
+  }
+
   // backgroundから翻訳結果を受信したらchrome.storage.localに保存し、Meet画面に翻訳を重ねて表示
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
     // @ts-ignore
     chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       console.log('onMessage:', msg);
       if (msg.type === 'TRANSLATED' && msg.translated) {
-        // Meet画面上に翻訳を重ねて表示
+        // Meet画面上に翻訳を重ねて表示（絶対配置オーバーレイ方式）
         if (msg.nodeId) {
-          // XPath的なnodeIdから該当ノードを探索
           const node = findNodeById(msg.nodeId);
-          console.log('findNodeById:', msg.nodeId, node);
           if (node) {
-            insertTranslation(node, msg.translated);
+            insertTranslationOverlay(node, msg.translated);
           }
         }
         // 最新翻訳をchrome.storage.localにも保存（popup用）
