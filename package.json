@@ -1,6 +1,7 @@
 {
   "name": "meet-translate-test",
   "version": "0.1.0",
+  "type": "module",
   "devDependencies": {
     "jest": "^29.0.0",
     "jest-environment-jsdom": "^29.7.0",
