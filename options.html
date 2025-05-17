@@ -14,18 +14,16 @@
       <input type="password" id="apiKey" required>
     </label><br><br>
     <label>翻訳先言語:<br>
-      <input type="text" id="targetLang" value="ja" required>
+      <select id="targetLang" required></select>
     </label><br><br>
     <label>翻訳モデル:<br>
-      <select id="model">
-        <option value="gpt-4.1-nano">GPT-4.1 nano (低コスト)</option>
-        <option value="gpt-4.1-mini">GPT-4.1 mini (中コスト)</option>
-        <option value="gpt-4.1">GPT-4.1 (高精度)</option>
-      </select>
+      <select id="model"></select>
     </label><br><br>
     <button type="submit">保存</button>
   </form>
   <div id="status"></div>
+  <script src="languages.js"></script>
+  <script src="models.js"></script>
   <script src="options.js"></script>
 </body>
 
