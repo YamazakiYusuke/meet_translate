@@ -16,6 +16,17 @@ if (typeof languages !== 'undefined' && targetLangSelect) {
   });
 }
 
+// モデルプルダウン生成
+if (typeof models !== 'undefined' && modelSelect) {
+  modelSelect.innerHTML = '';
+  models.forEach(model => {
+    const opt = document.createElement('option');
+    opt.value = model.value;
+    opt.textContent = model.label;
+    modelSelect.appendChild(opt);
+  });
+}
+
 // 復元
 window.addEventListener('DOMContentLoaded', () => {
   if (!chrome || !chrome.storage || !chrome.storage.local) return;
