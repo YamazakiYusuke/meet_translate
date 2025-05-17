@@ -4,6 +4,21 @@
   const TRANSLATION_CLASS = 'mt-translation';
   const TRANSLATED_ATTR = 'data-mt-translated';
 
+  // 翻訳有効フラグ
+  let translateEnabled = true;
+  // 設定を取得
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    chrome.storage.local.get(['translateEnabled'], (items) => {
+      translateEnabled = items.translateEnabled !== false; // デフォルトON
+    });
+    // ON/OFFが変わったときも反映
+    chrome.storage.onChanged && chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && changes.translateEnabled) {
+        translateEnabled = changes.translateEnabled.newValue !== false;
+      }
+    });
+  }
+
   // 字幕要素を監視し、未翻訳なら送信
   function observeCaptions() {
     const observer = new MutationObserver(mutations => {
@@ -24,6 +39,7 @@
   function handleCaptionNode(node) {
     // 既に翻訳済みならスキップ
     if (node.getAttribute(TRANSLATED_ATTR)) return;
+    if (!translateEnabled) return;
     const text = node.textContent.trim();
     if (!text) return;
     const nodeId = getNodeId(node);
