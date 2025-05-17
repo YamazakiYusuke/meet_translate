@@ -56,6 +56,8 @@
     const text = node.textContent.trim();
     if (!text) return;
     const nodeId = getNodeId(node);
+    node.setAttribute('data-mt-nodeid', nodeId);
+    console.log('handleCaptionNode nodeId:', nodeId, node);
     if (lastCaptionTextMap.get(nodeId) === text) return;
     lastCaptionTextMap.set(nodeId, text);
     // Meet画面への挿入・既存字幕replaceは行わず、翻訳リクエストのみ
@@ -93,15 +95,32 @@
     return path;
   }
 
-  // backgroundから翻訳結果を受信したらchrome.storage.localに保存
+  // backgroundから翻訳結果を受信したらchrome.storage.localに保存し、Meet画面に翻訳を重ねて表示
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
     // @ts-ignore
     chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+      console.log('onMessage:', msg);
       if (msg.type === 'TRANSLATED' && msg.translated) {
+        // Meet画面上に翻訳を重ねて表示
+        if (msg.nodeId) {
+          // XPath的なnodeIdから該当ノードを探索
+          const node = findNodeById(msg.nodeId);
+          console.log('findNodeById:', msg.nodeId, node);
+          if (node) {
+            insertTranslation(node, msg.translated);
+          }
+        }
+        // 最新翻訳をchrome.storage.localにも保存（popup用）
         // @ts-ignore
         chrome.storage.local.set({ latestTranslation: msg.translated });
       }
     });
+  }
+
+  // nodeId（XPath的な）からノードを探索
+  function findNodeById(nodeId) {
+    // data-mt-nodeid属性で直接検索
+    return document.querySelector(`[data-mt-nodeid="${CSS.escape(nodeId)}"]`);
   }
 
   // 初期化
