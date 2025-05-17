@@ -40,4 +40,29 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     })();
     return true;
   }
-}); 
+});
+
+function observeCaptions() {
+  const observer = new MutationObserver(mutations => {
+    mutations.forEach(mutation => {
+      // ノード追加時
+      mutation.addedNodes.forEach(node => {
+        if (node.nodeType === 1 && node.classList && node.classList.contains(CAPTION_CLASS)) {
+          handleCaptionNode(node);
+        }
+      });
+      // テキストノードの内容が変わった場合
+      if (mutation.type === 'characterData') {
+        const parent = mutation.target.parentElement;
+        if (parent && parent.classList && parent.classList.contains(CAPTION_CLASS)) {
+          handleCaptionNode(parent);
+        }
+      }
+    });
+  });
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    characterData: true // ← これを追加
+  });
+} 

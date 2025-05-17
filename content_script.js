@@ -1,3 +1,4 @@
+/* global chrome */
 // Google Meetのキャプション要素を監視し、検出したテキストをbackgroundに送信し、翻訳を字幕直下に挿入する本実装
 (function () {
   const CAPTION_CLASS = 'bh44bd'; // VbkSUeは動的な場合があるため主クラスのみ
@@ -8,10 +9,11 @@
   let translateEnabled = true;
   // 設定を取得
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    // @ts-ignore
     chrome.storage.local.get(['translateEnabled'], (items) => {
       translateEnabled = items.translateEnabled !== false; // デフォルトON
     });
-    // ON/OFFが変わったときも反映
+    // @ts-ignore
     chrome.storage.onChanged && chrome.storage.onChanged.addListener((changes, area) => {
       if (area === 'local' && changes.translateEnabled) {
         translateEnabled = changes.translateEnabled.newValue !== false;
@@ -23,34 +25,42 @@
   function observeCaptions() {
     const observer = new MutationObserver(mutations => {
       mutations.forEach(mutation => {
+        // ノード追加時
         mutation.addedNodes.forEach(node => {
-          if (node.nodeType === 1 && node.classList.contains(CAPTION_CLASS)) {
+          // @ts-ignore
+          if (node.nodeType === 1 && node.classList && node.classList.contains(CAPTION_CLASS)) {
             handleCaptionNode(node);
           }
         });
+        // テキストノードの内容が変わった場合
+        if (mutation.type === 'characterData') {
+          const parent = mutation.target.parentElement;
+          if (parent && parent.classList && parent.classList.contains(CAPTION_CLASS)) {
+            handleCaptionNode(parent);
+          }
+        }
       });
     });
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true // テキストノードの変化も監視
+    });
   }
 
   // 字幕ノードの処理
   // 直前の字幕内容をnodeIdごとに記憶
   const lastCaptionTextMap = new Map();
   function handleCaptionNode(node) {
-    // 既に翻訳済みならスキップ
-    if (node.getAttribute(TRANSLATED_ATTR)) return;
     if (!translateEnabled) return;
     const text = node.textContent.trim();
     if (!text) return;
     const nodeId = getNodeId(node);
-    // 直前と同じ内容ならスキップ
     if (lastCaptionTextMap.get(nodeId) === text) return;
     lastCaptionTextMap.set(nodeId, text);
-    // 既存翻訳オーバーレイ除去
-    removeTranslation(node);
-    // 翻訳リクエスト
+    // Meet画面への挿入・既存字幕replaceは行わず、翻訳リクエストのみ
+    // @ts-ignore
     chrome.runtime.sendMessage({ type: 'TRANSLATE', text, nodeId });
-    node.setAttribute(TRANSLATED_ATTR, 'pending');
   }
 
   // 翻訳オーバーレイを挿入
@@ -83,37 +93,15 @@
     return path;
   }
 
-  // 翻訳結果を受信し、該当ノードに挿入
+  // backgroundから翻訳結果を受信したらchrome.storage.localに保存
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+    // @ts-ignore
     chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-      if (msg.type === 'TRANSLATED' && msg.nodeId) {
-        const node = findNodeById(msg.nodeId);
-        if (node) insertTranslation(node, msg.translated);
+      if (msg.type === 'TRANSLATED' && msg.translated) {
+        // @ts-ignore
+        chrome.storage.local.set({ latestTranslation: msg.translated });
       }
     });
-  }
-
-  // XPath的IDからノードを探索
-  function findNodeById(nodeId) {
-    if (!nodeId) return null;
-    let node = document.body;
-    const parts = nodeId.split('/').filter(Boolean);
-    for (const part of parts) {
-      const match = part.match(/^(\w+)\[(\d+)\]$/);
-      if (!match) return null;
-      const [, tag, idx] = match;
-      let count = 0;
-      let found = null;
-      for (const child of node.children) {
-        if (child.nodeName === tag) {
-          if (count == idx) { found = child; break; }
-          count++;
-        }
-      }
-      if (!found) return null;
-      node = found;
-    }
-    return node;
   }
 
   // 初期化
