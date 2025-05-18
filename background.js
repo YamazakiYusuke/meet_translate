@@ -8,7 +8,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       });
       if (!apiKey) {
         // APIキー未設定
-        chrome.tabs.sendMessage(sender.tab.id, { type: 'TRANSLATED', original: msg.text, translated: '[APIキー未設定]', nodeId: msg.nodeId });
+        chrome.tabs.sendMessage(sender.tab.id, { type: 'TRANSLATED', original: msg.text, translated: '[APIキー未設定]', nodeId: msg.nodeId, untranslated: msg.untranslated });
         sendResponse();
         return;
       }
@@ -34,10 +34,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         });
         const data = await response.json();
         const translated = data.choices?.[0]?.message?.content || '[翻訳失敗]';
-        chrome.tabs.sendMessage(sender.tab.id, { type: 'TRANSLATED', original: msg.text, translated, nodeId: msg.nodeId });
+        console.log('[MT-bg] 送信前 TRANSLATED:', { original: msg.text, translated, nodeId: msg.nodeId, untranslated: msg.untranslated });
+        chrome.tabs.sendMessage(sender.tab.id, { type: 'TRANSLATED', original: msg.text, translated, nodeId: msg.nodeId, untranslated: msg.untranslated }, function (response) {
+          console.log('[MT-bg] 送信後 TRANSLATED:', response);
+        });
         sendResponse();
       } catch (e) {
-        chrome.tabs.sendMessage(sender.tab.id, { type: 'TRANSLATED', original: msg.text, translated: '[APIエラー]', nodeId: msg.nodeId });
+        console.log('[MT-bg] APIエラー:', e);
+        chrome.tabs.sendMessage(sender.tab.id, { type: 'TRANSLATED', original: msg.text, translated: '[APIエラー]', nodeId: msg.nodeId, untranslated: msg.untranslated }, function (response) {
+          console.log('[MT-bg] 送信後 TRANSLATED(エラー):', response);
+        });
         sendResponse();
       }
     })();
