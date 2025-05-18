@@ -112,10 +112,14 @@
 
   // 絶対配置の翻訳オーバーレイをbody直下に表示
   function insertTranslationOverlay(node, translated) {
-    removeTranslationOverlay();
+    // 既存オーバーレイがあれば内容を上書き、なければ新規作成
+    let overlay = document.querySelector('.mt-translation-overlay');
     const rect = node.getBoundingClientRect();
-    const overlay = document.createElement('div');
-    overlay.className = 'mt-translation-overlay';
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'mt-translation-overlay';
+      document.body.appendChild(overlay);
+    }
     overlay.textContent = translated;
     overlay.style.position = 'fixed';
     overlay.style.left = String(rect.left) + 'px';
@@ -125,8 +129,11 @@
     overlay.style.pointerEvents = 'none';
     overlay.style.whiteSpace = 'pre-wrap';
     overlay.style.maxWidth = '90vw';
-    overlay.style.padding = '6px 18px';
+    overlay.style.padding = '6px 24px';
     overlay.style.borderRadius = '10px';
+    overlay.style.minWidth = '120px';
+    overlay.style.minHeight = '36px';
+    overlay.style.display = 'inline-block';
     if (captionColor === 'white') {
       overlay.style.color = '#fff';
       overlay.style.background = '#111';
@@ -134,10 +141,6 @@
       overlay.style.color = '#111';
       overlay.style.background = '#fff';
     }
-    document.body.appendChild(overlay);
-  }
-  function removeTranslationOverlay() {
-    document.querySelectorAll('.mt-translation-overlay').forEach(e => e.remove());
   }
 
   // backgroundから翻訳結果を受信したらchrome.storage.localに保存し、Meet画面に翻訳を重ねて表示
