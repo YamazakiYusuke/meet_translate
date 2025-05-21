@@ -26,6 +26,17 @@
             <label for="model" class="form-label">翻訳モデル</label>
             <select id="model" class="form-select"></select>
           </div>
+          <hr>
+          <h5 class="mb-3">Meeting Minutes</h5>
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" role="switch" id="enableMinutes">
+            <label class="form-check-label" for="enableMinutes">Enable Meeting Minutes</label>
+          </div>
+          <div class="mb-3">
+            <label for="minutesEmail" class="form-label">Recipient Email for Minutes</label>
+            <input type="email" class="form-control" id="minutesEmail">
+          </div>
+          <hr>
           <div class="mb-3">
             <label for="captionColor" class="form-label">字幕テキストカラー</label>
             <select id="captionColor" class="form-select">
