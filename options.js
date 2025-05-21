@@ -5,6 +5,8 @@ const targetLangSelect = document.getElementById('targetLang');
 const modelSelect = document.getElementById('model');
 const statusDiv = document.getElementById('status');
 const captionColorSelect = document.getElementById('captionColor');
+const enableMinutesSwitch = document.getElementById('enableMinutes');
+const minutesEmailInput = document.getElementById('minutesEmail');
 
 // 言語プルダウン生成
 if (typeof languages !== 'undefined' && targetLangSelect) {
@@ -30,14 +32,24 @@ if (typeof models !== 'undefined' && modelSelect) {
 
 // 復元
 window.addEventListener('DOMContentLoaded', () => {
-  if (!chrome || !chrome.storage || !chrome.storage.local) return;
-  chrome.storage.local.get(['apiKey', 'targetLang', 'model', 'captionColor'], (items) => {
+  if (!chrome || !chrome.storage || !chrome.storage.sync) {
+    console.error("Chrome storage sync API not available.");
+    return;
+  }
+  chrome.storage.sync.get(['apiKey', 'targetLang', 'model', 'captionColor', 'enableMinutes', 'minutesEmail'], (items) => {
+    if (chrome.runtime.lastError) {
+      console.error("Error loading options:", chrome.runtime.lastError);
+      if (statusDiv) statusDiv.textContent = 'オプションの読み込みに失敗しました。';
+      return;
+    }
     if (apiKeyInput && items.apiKey) apiKeyInput.value = items.apiKey;
     if (targetLangSelect && items.targetLang) targetLangSelect.value = items.targetLang;
     if (modelSelect && items.model) modelSelect.value = items.model;
     if (captionColorSelect && items.captionColor) {
       captionColorSelect.value = items.captionColor;
     }
+    if (enableMinutesSwitch) enableMinutesSwitch.checked = items.enableMinutes !== undefined ? items.enableMinutes : false;
+    if (minutesEmailInput && items.minutesEmail) minutesEmailInput.value = items.minutesEmail;
   });
 });
 
@@ -45,17 +57,33 @@ window.addEventListener('DOMContentLoaded', () => {
 if (form) {
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    if (!apiKeyInput || !targetLangSelect || !modelSelect || !captionColorSelect) return;
+    if (!apiKeyInput || !targetLangSelect || !modelSelect || !captionColorSelect || !enableMinutesSwitch || !minutesEmailInput) return;
     const captionColor = captionColorSelect.value;
-    chrome.storage.local.set({
+    const enableMinutes = enableMinutesSwitch.checked;
+    const minutesEmail = minutesEmailInput.value;
+
+    if (!chrome || !chrome.storage || !chrome.storage.sync) {
+      console.error("Chrome storage sync API not available.");
+      if (statusDiv) statusDiv.textContent = '設定の保存に失敗しました。ストレージAPIが利用できません。';
+      return;
+    }
+
+    chrome.storage.sync.set({
       apiKey: apiKeyInput.value,
       targetLang: targetLangSelect.value,
       model: modelSelect.value,
-      captionColor
+      captionColor,
+      enableMinutes,
+      minutesEmail
     }, () => {
-      if (statusDiv) {
-        statusDiv.textContent = '保存しました';
-        setTimeout(() => statusDiv.textContent = '', 1500);
+      if (chrome.runtime.lastError) {
+        console.error("Error saving options:", chrome.runtime.lastError);
+        if (statusDiv) statusDiv.textContent = '保存に失敗しました。';
+      } else {
+        if (statusDiv) {
+          statusDiv.textContent = '保存しました';
+          setTimeout(() => statusDiv.textContent = '', 1500);
+        }
       }
     });
   });
